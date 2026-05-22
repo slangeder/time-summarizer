@@ -36,6 +36,12 @@ it("should ignore trailing text after the time range", () => {
   expect(result.total.duration).toEqual(moment.duration(1, "hours"));
 });
 
+it("should handle times crossing midnight", () => {
+  const result = TimeSummarizerLogic.calculate("23:00-01:00");
+  expect(result.parsed[0].duration).toEqual(moment.duration(2, "hours"));
+  expect(result.total.duration).toEqual(moment.duration(2, "hours"));
+});
+
 it("should parse multiple lines", () => {
   const result = TimeSummarizerLogic.calculate(`
     08:30-09:00
