@@ -14,7 +14,6 @@
     "vue": "3.2.41"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.3.0",
     "@vitejs/plugin-vue": "^4.2.3",
     "autoprefixer": "^10.5.0",
     "eslint": "^8.39.0",

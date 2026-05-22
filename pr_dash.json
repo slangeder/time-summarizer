@@ -1,6 +1,0 @@
-{
-  "title": "fix: support en-dash and em-dash for time parsing",
-  "body": "This PR fixes a bug where time ranges using an en-dash (`–`) or em-dash (`—`) were not parsed correctly. This often happens on iOS/macOS keyboards or when copying text.\n\n- Updated `split()` to use a regex `/[-–—]/`\n- Added corresponding tests for en-dash, em-dash, and time without colon (e.g. `1300-1400`)\n\n---\n*🤖 Authored by Lango*",
-  "head": "fix/dash-parsing",
-  "base": "main"
-}
