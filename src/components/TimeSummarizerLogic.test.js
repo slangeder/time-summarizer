@@ -11,6 +11,31 @@ it("should parse single line", () => {
   expect(result.total.duration).toEqual(moment.duration(2, "hours"));
 });
 
+it("should parse single line with different dashes", () => {
+  const resultEnDash = TimeSummarizerLogic.calculate("08:00–10:00");
+  expect(resultEnDash.parsed[0].duration).toEqual(moment.duration(2, "hours"));
+
+  const resultEmDash = TimeSummarizerLogic.calculate("08:00—10:00");
+  expect(resultEmDash.parsed[0].duration).toEqual(moment.duration(2, "hours"));
+});
+
+it("should parse without colon in time", () => {
+  const result = TimeSummarizerLogic.calculate("1300-1400");
+  expect(result.parsed[0].duration).toEqual(moment.duration(1, "hours"));
+});
+
+it("should parse with spaces around dash", () => {
+  const result = TimeSummarizerLogic.calculate("1300 - 1400");
+  expect(result.parsed[0].duration).toEqual(moment.duration(1, "hours"));
+});
+
+it("should ignore trailing text after the time range", () => {
+  const result = TimeSummarizerLogic.calculate("13:00-14:00 Project A");
+  expect(result.parsed[0].duration).toEqual(moment.duration(1, "hours"));
+  expect(result.parsed[0].input).toBe("13:00-14:00 Project A");
+  expect(result.total.duration).toEqual(moment.duration(1, "hours"));
+});
+
 it("should parse multiple lines", () => {
   const result = TimeSummarizerLogic.calculate(`
     08:30-09:00

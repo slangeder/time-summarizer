@@ -30,7 +30,7 @@ export default {
 function parseLine(line) {
   line = line.trim();
 
-  const split = line.split("-");
+  const split = line.split(/[-–—]/);
   const from = new moment(split[0], "HH:mm");
   const to = new moment(split[1], "HH:mm");
 
