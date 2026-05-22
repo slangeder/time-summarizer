@@ -1,0 +1,6 @@
+{
+  "title": "fix: support time ranges crossing midnight",
+  "body": "This PR fixes a bug where time ranges spanning across midnight (e.g., `23:00-01:00`) were calculated incorrectly as negative durations.\n\n- Updated `parseLine` to add 1 day to the end time (`to`) if it is before the start time (`from`).\n- Added corresponding test case for midnight crossing.\n\n---\n*🤖 Authored by Lango*",
+  "head": "fix/midnight-parsing",
+  "base": "main"
+}

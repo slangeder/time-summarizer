@@ -1,42 +1,63 @@
 <template>
-  <div>
-    <h2>Input</h2>
-    <div>
-      <textarea v-model="input" rows="10" />
+  <div class="space-y-8">
+    <div class="space-y-3">
+      <label class="block text-lg font-semibold text-slate-700">Input</label>
+      <textarea 
+        v-model="input" 
+        rows="8" 
+        class="w-full font-mono text-sm p-4 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-accent focus:border-brand-accent outline-none transition-shadow resize-y"
+        placeholder="08:00-12:00 Project A&#10;13:00-17:00 Project B"
+      />
     </div>
-    <button @click="calculate" :disabled="!input">Calculate</button>
+    
+    <button 
+      @click="calculate" 
+      :disabled="!input"
+      class="w-full sm:w-auto px-6 py-3 bg-brand-accent hover:bg-brand-accent/90 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold rounded-lg shadow-sm transition-colors"
+    >
+      Calculate
+    </button>
 
-    <div v-if="result">
-      <div style="margin-top: 2rem">
-        <h2>Total</h2>
-        <div class="mono">
-          <span class="time-positive" style="border-bottom: 3px double">
-            {{ durationToString(result.total.duration) }}
-          </span>
+    <div v-if="result" class="space-y-8 pt-8 border-t border-slate-200">
+      
+      <!-- Total Section -->
+      <div class="bg-brand-darkest text-white rounded-xl p-6 text-center shadow-sm">
+        <h2 class="text-sm font-medium text-slate-300 uppercase tracking-wider mb-2">Total Time</h2>
+        <div class="font-mono text-4xl font-bold text-brand-accent">
+          {{ durationToString(result.total.duration) }}
         </div>
       </div>
-      <div style="margin-top: 2rem">
-        <h2>Calculation</h2>
-        <div v-for="(line, index) of result.parsed" class="result-grid mono" :key="index">
-          {{ line.input }}
-          <span class="time-positive">
-            {{ durationToString(line.duration) }}
-          </span>
+
+      <!-- Calculation Breakdown -->
+      <div>
+        <h2 class="text-lg font-semibold text-slate-700 mb-4">Calculation</h2>
+        <div class="bg-slate-50 rounded-xl border border-slate-200 overflow-hidden">
+          <ul class="divide-y divide-slate-200">
+            <li v-for="(line, index) of result.parsed" :key="index" class="p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 hover:bg-slate-100 transition-colors">
+              <span class="font-mono text-sm text-slate-600 break-all">{{ line.input }}</span>
+              <span class="font-mono font-semibold text-brand-accent shrink-0">
+                {{ durationToString(line.duration) }}
+              </span>
+            </li>
+          </ul>
         </div>
       </div>
-      <div style="margin-top: 2rem">
-        <h2>Other</h2>
-        <div class="mono">
-          <div>
-            Work start:
-            {{ durationToString(result.total.workStart) }}
+
+      <!-- Other Details -->
+      <div>
+        <h2 class="text-lg font-semibold text-slate-700 mb-4">Details</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl">
+            <div class="text-sm text-slate-500 mb-1">Work start</div>
+            <div class="font-mono font-semibold text-slate-700">{{ durationToString(result.total.workStart) }}</div>
           </div>
-          <div>
-            Normalized work end:
-            {{ durationToString(result.total.normalizedWorkEnd) }}
+          <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl">
+            <div class="text-sm text-slate-500 mb-1">Normalized work end</div>
+            <div class="font-mono font-semibold text-slate-700">{{ durationToString(result.total.normalizedWorkEnd) }}</div>
           </div>
         </div>
       </div>
+      
     </div>
   </div>
 </template>
@@ -63,7 +84,7 @@ export default {
     durationToString(duration) {
       return (
         "+" +
-        this.pad(duration.hours(), 2) +
+        this.pad(Math.floor(duration.asHours()), 2) +
         ":" +
         this.pad(duration.minutes(), 2)
       );
@@ -77,26 +98,3 @@ export default {
   },
 };
 </script>
-
-<!-- Add "scoped" attribute to limit CSS to this component only -->
-<style scoped>
-.time-positive {
-  color: #70A288;
-  font-weight: 600;
-}
-
-button {
-  background-color: #70A288;
-  color: white;
-  padding: 0.5rem 1rem;
-  border-radius: 12px;
-  cursor: pointer;
-  border: none;
-}
-
-button[disabled] {
-  background-color: #B0B0B0;
-  color: #EFEFEF;
-  cursor: not-allowed;
-}
-</style>

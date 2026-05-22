@@ -1,0 +1,6 @@
+{
+  "title": "ci: add github pages deployment workflow",
+  "body": "This PR sets up automated deployment to GitHub Pages.\n\n- Added `.github/workflows/pages.yml` to build and deploy the Vite app.\n- Updated `vite.config.js` to set the base path to `/time-summarizer/` for correct asset loading on GitHub Pages.\n\n**Note**: After merging this PR, you need to go to the repository settings on GitHub under **Settings > Pages** and ensure that the \"Source\" is set to **GitHub Actions**.\n\n---\n*🤖 Authored by Lango*",
+  "head": "feat/github-pages",
+  "base": "main"
+}
