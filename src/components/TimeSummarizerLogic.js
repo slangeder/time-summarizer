@@ -34,6 +34,10 @@ function parseLine(line) {
   const from = new moment(split[0], "HH:mm");
   const to = new moment(split[1], "HH:mm");
 
+  if (to.isBefore(from)) {
+    to.add(1, "day");
+  }
+
   return {
     input: line,
     from: from,
