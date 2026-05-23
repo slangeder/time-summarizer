@@ -6,7 +6,7 @@
         v-model="input" 
         rows="8" 
         class="w-full font-mono text-sm p-4 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-accent focus:border-brand-accent outline-none transition-shadow resize-y"
-        placeholder="08:00-12:00 Project A&#10;13:00-17:00 Project B"
+        placeholder="08:00-12:00&#10;13:00-17:00"
       />
     </div>
     
@@ -62,39 +62,27 @@
   </div>
 </template>
 
-<script>
-import TimeSummarizerLogic from "./TimeSummarizerLogic";
+<script setup lang="ts">
+import { ref } from "vue";
+import type { Duration, Moment } from "moment";
+import TimeSummarizerLogic, { type CalculationResult } from "./TimeSummarizerLogic";
 
-export default {
-  name: "TimeSummarizer",
-  props: {
-    msg: String,
-  },
-  data() {
-    return {
-      input: "",
-      result: undefined,
-    };
-  },
-  methods: {
-    calculate() {
-      this.result = TimeSummarizerLogic.calculate(this.input);
-    },
+defineProps<{ msg?: string }>();
 
-    durationToString(duration) {
-      return (
-        "+" +
-        this.pad(Math.floor(duration.asHours()), 2) +
-        ":" +
-        this.pad(duration.minutes(), 2)
-      );
-    },
+const input = ref("");
+const result = ref<CalculationResult | undefined>(undefined);
 
-    pad(num, size) {
-      num = num.toString();
-      while (num.length < size) num = "0" + num;
-      return num;
-    },
-  },
-};
+function calculate(): void {
+  result.value = TimeSummarizerLogic.calculate(input.value);
+}
+
+function pad(num: number | string, size: number): string {
+  let s = num.toString();
+  while (s.length < size) s = "0" + s;
+  return s;
+}
+
+function durationToString(duration: Duration | Moment): string {
+  return "+" + pad(Math.floor(duration.hours()), 2) + ":" + pad(duration.minutes(), 2);
+}
 </script>

@@ -7,12 +7,6 @@
   </div>
 </template>
 
-<script>
+<script setup lang="ts">
 import TimeSummarizer from "./components/TimeSummarizer.vue";
-export default {
-  name: "App",
-  components: {
-    TimeSummarizer: TimeSummarizer,
-  },
-};
 </script>
