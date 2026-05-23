@@ -1,112 +1,291 @@
-import { it, expect } from 'vitest';
+import { it, expect, describe } from 'vitest';
 import moment from "moment";
-import TimeSummarizerLogic, { type ParsedLine } from "./TimeSummarizerLogic";
+import TimeSummarizerLogic, { type ParsedLine, type Day } from "./TimeSummarizerLogic";
 
 function assertValid(line: ParsedLine): asserts line is Extract<ParsedLine, { valid: true }> {
   if (!line.valid) throw new Error(`expected valid line, got: ${line.input}`);
 }
 
-it("should parse single line", () => {
-  const result = TimeSummarizerLogic.calculate("08:00-10:00");
+function firstDay(input: string): Day {
+  return TimeSummarizerLogic.calculate(input).days[0];
+}
 
-  expect(result.parsed.length).toBe(1);
-  expect(result.parsed[0].input).toBe("08:00-10:00");
-  assertValid(result.parsed[0]);
-  expect(result.parsed[0].duration).toEqual(moment.duration(2, "hours"));
-  expect(result.total!.duration).toEqual(moment.duration(2, "hours"));
+describe("single day parsing", () => {
+  it("should parse single line", () => {
+    const result = TimeSummarizerLogic.calculate("08:00-10:00");
+    const day = result.days[0];
+
+    expect(day.parsed.length).toBe(1);
+    expect(day.parsed[0].input).toBe("08:00-10:00");
+    assertValid(day.parsed[0]);
+    expect(day.parsed[0].duration).toEqual(moment.duration(2, "hours"));
+    expect(day.total!.duration).toEqual(moment.duration(2, "hours"));
+    expect(result.grandTotal).toEqual(moment.duration(2, "hours"));
+  });
+
+  it("should parse single line with different dashes", () => {
+    const resultEnDash = firstDay("08:00–10:00");
+    assertValid(resultEnDash.parsed[0]);
+    expect(resultEnDash.parsed[0].duration).toEqual(moment.duration(2, "hours"));
+
+    const resultEmDash = firstDay("08:00—10:00");
+    assertValid(resultEmDash.parsed[0]);
+    expect(resultEmDash.parsed[0].duration).toEqual(moment.duration(2, "hours"));
+  });
+
+  it("should parse without colon in time", () => {
+    const day = firstDay("1300-1400");
+    assertValid(day.parsed[0]);
+    expect(day.parsed[0].duration).toEqual(moment.duration(1, "hours"));
+  });
+
+  it("should parse with spaces around dash", () => {
+    const day = firstDay("1300 - 1400");
+    assertValid(day.parsed[0]);
+    expect(day.parsed[0].duration).toEqual(moment.duration(1, "hours"));
+  });
+
+  it("should ignore trailing text after the time range", () => {
+    const day = firstDay("13:00-14:00 Project A");
+    assertValid(day.parsed[0]);
+    expect(day.parsed[0].duration).toEqual(moment.duration(1, "hours"));
+    expect(day.parsed[0].input).toBe("13:00-14:00 Project A");
+    expect(day.total!.duration).toEqual(moment.duration(1, "hours"));
+  });
+
+  it("should handle times crossing midnight", () => {
+    const day = firstDay("23:00-01:00");
+    assertValid(day.parsed[0]);
+    expect(day.parsed[0].duration).toEqual(moment.duration(2, "hours"));
+    expect(day.total!.duration).toEqual(moment.duration(2, "hours"));
+  });
+
+  it("should mark invalid entries", () => {
+    const day = firstDay("13-");
+    expect(day.parsed[0].valid).toBe(false);
+    expect(day.parsed[0].input).toBe("13-");
+  });
+
+  it("should mark gibberish as invalid", () => {
+    const day = firstDay("asdf");
+    expect(day.parsed[0].valid).toBe(false);
+  });
+
+  it("should mark empty single line as invalid", () => {
+    const result = TimeSummarizerLogic.calculate("   ");
+    expect(result.days[0].parsed.length).toBe(0);
+    expect(result.grandTotal).toBeUndefined();
+  });
+
+  it("should exclude invalid lines from total", () => {
+    const day = firstDay(`08:00-10:00
+asdf
+10:00-11:00`);
+
+    expect(day.parsed.length).toBe(3);
+    expect(day.parsed[0].valid).toBe(true);
+    expect(day.parsed[1].valid).toBe(false);
+    expect(day.parsed[2].valid).toBe(true);
+    expect(day.total!.duration).toEqual(moment.duration(3, "hours"));
+  });
+
+  it("should return undefined total when all lines invalid", () => {
+    const day = firstDay("asdf\n13-");
+    expect(day.total).toBeUndefined();
+  });
+
+  it("should parse multiple lines", () => {
+    const day = firstDay(`08:30-09:00
+10:00-11:00
+11:30-15:00`);
+
+    assertValid(day.parsed[0]);
+    assertValid(day.parsed[1]);
+    assertValid(day.parsed[2]);
+    expect(day.parsed[0].duration).toEqual(moment.duration(30, "minutes"));
+    expect(day.parsed[1].duration).toEqual(moment.duration(1, "hour"));
+    expect(day.parsed[2].duration).toEqual(moment.duration(210, "minutes"));
+    expect(day.total!.duration).toEqual(moment.duration(5, "hours"));
+  });
 });
 
-it("should parse single line with different dashes", () => {
-  const resultEnDash = TimeSummarizerLogic.calculate("08:00–10:00");
-  assertValid(resultEnDash.parsed[0]);
-  expect(resultEnDash.parsed[0].duration).toEqual(moment.duration(2, "hours"));
+describe("multi-day parsing", () => {
+  const today = moment({ year: 2026, month: 4, day: 23 }); // 2026-05-23
 
-  const resultEmDash = TimeSummarizerLogic.calculate("08:00—10:00");
-  assertValid(resultEmDash.parsed[0]);
-  expect(resultEmDash.parsed[0].duration).toEqual(moment.duration(2, "hours"));
-});
+  it("should split days by blank line", () => {
+    const result = TimeSummarizerLogic.calculate(
+      `08:00-09:00
 
-it("should parse without colon in time", () => {
-  const result = TimeSummarizerLogic.calculate("1300-1400");
-  assertValid(result.parsed[0]);
-  expect(result.parsed[0].duration).toEqual(moment.duration(1, "hours"));
-});
+10:00-12:00`,
+      today,
+    );
+    expect(result.days.length).toBe(2);
+    expect(result.days[0].total!.duration).toEqual(moment.duration(1, "hour"));
+    expect(result.days[1].total!.duration).toEqual(moment.duration(2, "hours"));
+    expect(result.grandTotal).toEqual(moment.duration(3, "hours"));
+  });
 
-it("should parse with spaces around dash", () => {
-  const result = TimeSummarizerLogic.calculate("1300 - 1400");
-  assertValid(result.parsed[0]);
-  expect(result.parsed[0].duration).toEqual(moment.duration(1, "hours"));
-});
+  it("should parse date header with year", () => {
+    const result = TimeSummarizerLogic.calculate(
+      `08.05.2026
+0705-1120`,
+      today,
+    );
+    const day = result.days[0];
+    expect(day.dateInput).toBe("08.05.2026");
+    expect(day.date!.format("YYYY-MM-DD")).toBe("2026-05-08");
+    expect(day.parsed.length).toBe(1);
+    expect(day.total!.duration).toEqual(moment.duration(4, "hours").add(15, "minutes"));
+  });
 
-it("should ignore trailing text after the time range", () => {
-  const result = TimeSummarizerLogic.calculate("13:00-14:00 Project A");
-  assertValid(result.parsed[0]);
-  expect(result.parsed[0].duration).toEqual(moment.duration(1, "hours"));
-  expect(result.parsed[0].input).toBe("13:00-14:00 Project A");
-  expect(result.total!.duration).toEqual(moment.duration(1, "hours"));
-});
+  it("should infer current year when date already passed this year", () => {
+    const result = TimeSummarizerLogic.calculate(
+      `07.05.
+08:00-09:00`,
+      today,
+    );
+    expect(result.days[0].date!.format("YYYY-MM-DD")).toBe("2026-05-07");
+  });
 
-it("should handle times crossing midnight", () => {
-  const result = TimeSummarizerLogic.calculate("23:00-01:00");
-  assertValid(result.parsed[0]);
-  expect(result.parsed[0].duration).toEqual(moment.duration(2, "hours"));
-  expect(result.total!.duration).toEqual(moment.duration(2, "hours"));
-});
+  it("should infer last year when date is in the future this year", () => {
+    const result = TimeSummarizerLogic.calculate(
+      `30.12.
+08:00-09:00`,
+      today,
+    );
+    expect(result.days[0].date!.format("YYYY-MM-DD")).toBe("2025-12-30");
+  });
 
-it("should mark invalid entries", () => {
-  const result = TimeSummarizerLogic.calculate("13-");
-  expect(result.parsed[0].valid).toBe(false);
-  expect(result.parsed[0].input).toBe("13-");
-});
+  it("should treat today as current year (not future)", () => {
+    const result = TimeSummarizerLogic.calculate(
+      `23.05.
+08:00-09:00`,
+      today,
+    );
+    expect(result.days[0].date!.format("YYYY-MM-DD")).toBe("2026-05-23");
+  });
 
-it("should mark gibberish as invalid", () => {
-  const result = TimeSummarizerLogic.calculate("asdf");
-  expect(result.parsed[0].valid).toBe(false);
-});
+  it("should parse multi-day example from spec", () => {
+    const input = `07.05.
+0720-0755
+0820-0905
+1005-1245
+1315-1620
+2020-2145
 
-it("should mark empty single line as invalid", () => {
-  const result = TimeSummarizerLogic.calculate("   ");
-  expect(result.parsed[0].valid).toBe(false);
-});
+08.05.2026
+0705-1120
+1145-1205
+1245-1355
 
-it("should exclude invalid lines from total", () => {
-  const result = TimeSummarizerLogic.calculate(`
-    08:00-10:00
-    asdf
-    10:00-11:00`);
+0705-1120
+1145-1205`;
+    const result = TimeSummarizerLogic.calculate(input, today);
+    expect(result.days.length).toBe(3);
+    expect(result.days[0].date!.format("YYYY-MM-DD")).toBe("2026-05-07");
+    expect(result.days[0].parsed.length).toBe(5);
+    expect(result.days[1].date!.format("YYYY-MM-DD")).toBe("2026-05-08");
+    expect(result.days[1].parsed.length).toBe(3);
+    expect(result.days[2].date).toBeUndefined();
+    expect(result.days[2].parsed.length).toBe(2);
+    expect(result.grandTotal).toBeDefined();
+  });
 
-  expect(result.parsed.length).toBe(3);
-  expect(result.parsed[0].valid).toBe(true);
-  expect(result.parsed[1].valid).toBe(false);
-  expect(result.parsed[2].valid).toBe(true);
-  expect(result.total!.duration).toEqual(moment.duration(3, "hours"));
-});
+  it("should allow day without date header", () => {
+    const result = TimeSummarizerLogic.calculate(
+      `08:00-09:00
 
-it("should return undefined total when all lines invalid", () => {
-  const result = TimeSummarizerLogic.calculate("asdf\n13-");
-  expect(result.total).toBeUndefined();
-});
+09:00-10:00`,
+      today,
+    );
+    expect(result.days[0].date).toBeUndefined();
+    expect(result.days[1].date).toBeUndefined();
+  });
 
-it("valid lines should have valid=true", () => {
-  const result = TimeSummarizerLogic.calculate("08:00-10:00");
-  expect(result.parsed[0].valid).toBe(true);
-});
+  it("should collapse multiple blank lines between days", () => {
+    const result = TimeSummarizerLogic.calculate(
+      `08:00-09:00
 
-it("should parse multiple lines", () => {
-  const result = TimeSummarizerLogic.calculate(`
-    08:30-09:00
-    10:00-11:00
-    11:30-15:00`);
 
-  assertValid(result.parsed[0]);
-  assertValid(result.parsed[1]);
-  assertValid(result.parsed[2]);
-  expect(result.parsed[0].input).toBe("08:30-09:00");
-  expect(result.parsed[0].duration).toEqual(moment.duration(30, "minutes"));
-  expect(result.parsed[1].input).toBe("10:00-11:00");
-  expect(result.parsed[1].duration).toEqual(moment.duration(1, "hour"));
-  expect(result.parsed[2].input).toBe("11:30-15:00");
-  expect(result.parsed[2].duration).toEqual(moment.duration(210, "minutes"));
-  expect(result.parsed.length).toBe(3);
-  expect(result.total!.duration).toEqual(moment.duration(5, "hours"));
+10:00-11:00`,
+      today,
+    );
+    expect(result.days.length).toBe(2);
+  });
+
+  it("should ignore leading and trailing blank lines", () => {
+    const result = TimeSummarizerLogic.calculate(
+      `
+
+08:00-09:00
+
+`,
+      today,
+    );
+    expect(result.days.length).toBe(1);
+    expect(result.days[0].total!.duration).toEqual(moment.duration(1, "hour"));
+  });
+
+  it("should treat date-only block as day with empty entries", () => {
+    const result = TimeSummarizerLogic.calculate(`07.05.`, today);
+    expect(result.days.length).toBe(1);
+    expect(result.days[0].date!.format("YYYY-MM-DD")).toBe("2026-05-07");
+    expect(result.days[0].parsed.length).toBe(0);
+    expect(result.days[0].total).toBeUndefined();
+  });
+
+  it("should anchor workStart to date when provided", () => {
+    const result = TimeSummarizerLogic.calculate(
+      `07.05.
+08:00-09:00`,
+      today,
+    );
+    expect(result.days[0].total!.workStart.format("YYYY-MM-DD HH:mm")).toBe("2026-05-07 08:00");
+  });
+
+  it("should compute grand total across days", () => {
+    const result = TimeSummarizerLogic.calculate(
+      `08:00-09:00
+
+10:00-12:30`,
+      today,
+    );
+    expect(result.grandTotal).toEqual(moment.duration(3, "hours").add(30, "minutes"));
+  });
+
+  it("should parse ISO date YYYY-MM-DD", () => {
+    const result = TimeSummarizerLogic.calculate(
+      `2025-12-30
+08:00-09:00`,
+      today,
+    );
+    expect(result.days[0].date!.format("YYYY-MM-DD")).toBe("2025-12-30");
+  });
+
+  it("should parse ISO date YYYY/MM/DD", () => {
+    const result = TimeSummarizerLogic.calculate(
+      `2025/12/30
+08:00-09:00`,
+      today,
+    );
+    expect(result.days[0].date!.format("YYYY-MM-DD")).toBe("2025-12-30");
+  });
+
+  it("should reject ambiguous slash-separated date without year", () => {
+    const result = TimeSummarizerLogic.calculate(
+      `07/05
+08:00-09:00`,
+      today,
+    );
+    expect(result.days[0].date).toBeUndefined();
+    expect(result.days[0].parsed.length).toBe(2);
+    expect(result.days[0].parsed[0].valid).toBe(false);
+  });
+
+  it("should return empty days array for empty input", () => {
+    const result = TimeSummarizerLogic.calculate("");
+    expect(result.days.length).toBe(1);
+    expect(result.days[0].parsed.length).toBe(0);
+    expect(result.grandTotal).toBeUndefined();
+  });
 });

@@ -2,16 +2,16 @@
   <div class="space-y-8">
     <div class="space-y-3">
       <label class="block text-lg font-semibold text-slate-700">Input</label>
-      <textarea 
-        v-model="input" 
-        rows="8" 
+      <textarea
+        v-model="input"
+        rows="10"
         class="w-full font-mono text-sm p-4 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-accent focus:border-brand-accent outline-none transition-shadow resize-y"
         placeholder="08:00-12:00&#10;13:00-17:00"
       />
     </div>
-    
-    <button 
-      @click="calculate" 
+
+    <button
+      @click="calculate"
       :disabled="!input"
       class="w-full sm:w-auto px-6 py-3 bg-brand-accent hover:bg-brand-accent/90 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold rounded-lg shadow-sm transition-colors"
     >
@@ -20,21 +20,29 @@
 
     <div v-if="result" class="space-y-8 pt-8 border-t border-slate-200">
 
-      <!-- Total Section -->
-      <div class="bg-brand-darkest text-white rounded-xl p-6 text-center shadow-sm">
-        <h2 class="text-sm font-medium text-slate-300 uppercase tracking-wider mb-2">Total Time</h2>
+      <!-- Grand Total (only when multiple days) -->
+      <div v-if="result.days.length > 1 && result.grandTotal" class="bg-brand-darkest text-white rounded-xl p-6 text-center shadow-sm">
+        <h2 class="text-sm font-medium text-slate-300 uppercase tracking-wider mb-2">Grand Total ({{ result.days.length }} days)</h2>
         <div class="font-mono text-4xl font-bold text-brand-accent">
-          {{ result.total ? durationToString(result.total.duration) : "—" }}
+          {{ durationToString(result.grandTotal) }}
         </div>
       </div>
 
-      <!-- Calculation Breakdown -->
-      <div>
-        <h2 class="text-lg font-semibold text-slate-700 mb-4">Calculation</h2>
-        <div class="bg-slate-50 rounded-xl border border-slate-200 overflow-hidden">
+      <!-- Per-day breakdown -->
+      <div v-for="(day, dayIndex) of result.days" :key="dayIndex" class="space-y-4">
+        <div class="flex items-baseline justify-between gap-4 border-b border-slate-200 pb-2">
+          <h2 class="text-lg font-semibold text-slate-700">
+            {{ day.date ? day.date.format("ddd, DD.MM.YYYY") : "No date" }}
+          </h2>
+          <span v-if="day.total" class="font-mono font-bold text-brand-accent text-xl">
+            {{ durationToString(day.total.duration) }}
+          </span>
+        </div>
+
+        <div v-if="day.parsed.length > 0" class="bg-slate-50 rounded-xl border border-slate-200 overflow-hidden">
           <ul class="divide-y divide-slate-200">
             <li
-              v-for="(line, index) of result.parsed"
+              v-for="(line, index) of day.parsed"
               :key="index"
               class="p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 transition-colors"
               :class="line.valid ? 'hover:bg-slate-100' : 'bg-red-50 hover:bg-red-100'"
@@ -49,19 +57,16 @@
             </li>
           </ul>
         </div>
-      </div>
+        <p v-else class="text-sm text-slate-500 italic">No entries</p>
 
-      <!-- Other Details -->
-      <div v-if="result.total">
-        <h2 class="text-lg font-semibold text-slate-700 mb-4">Details</h2>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div v-if="day.total" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl">
             <div class="text-sm text-slate-500 mb-1">Work start</div>
-            <div class="font-mono font-semibold text-slate-700">{{ durationToString(result.total.workStart) }}</div>
+            <div class="font-mono font-semibold text-slate-700">{{ momentToString(day.total.workStart) }}</div>
           </div>
           <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl">
             <div class="text-sm text-slate-500 mb-1">Normalized work end</div>
-            <div class="font-mono font-semibold text-slate-700">{{ durationToString(result.total.normalizedWorkEnd) }}</div>
+            <div class="font-mono font-semibold text-slate-700">{{ momentToString(day.total.normalizedWorkEnd) }}</div>
           </div>
         </div>
       </div>
@@ -90,7 +95,14 @@ function pad(num: number | string, size: number): string {
   return s;
 }
 
-function durationToString(duration: Duration | Moment): string {
-  return "+" + pad(Math.floor(duration.hours()), 2) + ":" + pad(duration.minutes(), 2);
+function durationToString(duration: Duration): string {
+  const totalMinutes = Math.floor(duration.asMinutes());
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return "+" + pad(hours, 2) + ":" + pad(minutes, 2);
+}
+
+function momentToString(m: Moment): string {
+  return m.format("HH:mm");
 }
 </script>
