@@ -1,7 +1,7 @@
 import moment, { Duration, Moment } from "moment";
 
 export type ParsedLine =
-  | { input: string; valid: true; from: Moment; to: Moment; duration: Duration }
+  | { input: string; valid: true; from: Moment; to: Moment; duration: Duration; scope?: string }
   | { input: string; valid: false };
 
 export interface TotalResult {
@@ -15,11 +15,13 @@ export interface Day {
   date?: Moment;
   parsed: ParsedLine[];
   total?: TotalResult;
+  scopeTotals?: Map<string, Duration>;
 }
 
 export interface CalculationResult {
   days: Day[];
   grandTotal?: Duration;
+  grandScopeTotals?: Map<string, Duration>;
 }
 
 const DATE_FORMATS_WITH_YEAR = ["DD.MM.YYYY", "YYYY-MM-DD", "YYYY/MM/DD"];
@@ -32,16 +34,29 @@ export default {
     const days: Day[] = blocks.map((block) => parseDay(block, referenceToday));
 
     let grandTotal: Duration | undefined;
+    let grandScopeTotals: Map<string, Duration> | undefined;
     for (const day of days) {
-      if (!day.total) continue;
-      if (!grandTotal) {
-        grandTotal = day.total.duration.clone();
-      } else {
-        grandTotal.add(day.total.duration);
+      if (day.total) {
+        if (!grandTotal) {
+          grandTotal = day.total.duration.clone();
+        } else {
+          grandTotal.add(day.total.duration);
+        }
+      }
+      if (day.scopeTotals) {
+        if (!grandScopeTotals) grandScopeTotals = new Map();
+        for (const [scope, dur] of day.scopeTotals) {
+          const existing = grandScopeTotals.get(scope);
+          if (existing) {
+            existing.add(dur);
+          } else {
+            grandScopeTotals.set(scope, dur.clone());
+          }
+        }
       }
     }
 
-    return { days, grandTotal };
+    return { days, grandTotal, grandScopeTotals };
   },
 };
 
@@ -82,8 +97,23 @@ function parseDay(blockLines: string[], today: Moment): Day {
 
   const parsed = entryLines.map(parseLine);
   const total = calculateTotal(parsed, date);
+  const scopeTotals = calculateScopeTotals(parsed);
 
-  return { dateInput, date, parsed, total };
+  return { dateInput, date, parsed, total, scopeTotals };
+}
+
+function calculateScopeTotals(parsedLines: ParsedLine[]): Map<string, Duration> | undefined {
+  const totals = new Map<string, Duration>();
+  for (const line of parsedLines) {
+    if (!line.valid || !line.scope) continue;
+    const existing = totals.get(line.scope);
+    if (existing) {
+      existing.add(line.duration);
+    } else {
+      totals.set(line.scope, line.duration.clone());
+    }
+  }
+  return totals.size > 0 ? totals : undefined;
 }
 
 function parseDate(line: string, today: Moment): Moment | undefined {
@@ -108,7 +138,10 @@ function parseLine(line: string): ParsedLine {
   const split = trimmed.split(/[-–—]/);
   const formats = ["HH:mm", "HHmm"];
   const fromStr = (split[0] ?? "").trim();
-  const toStr = (split[1] ?? "").trim().split(/\s+/)[0] ?? "";
+  const rightSide = (split[1] ?? "").trim();
+  const rightParts = rightSide.split(/\s+/);
+  const toStr = rightParts[0] ?? "";
+  const scope = rightParts.slice(1).join(" ").trim() || undefined;
   const from = moment(fromStr, formats, true);
   const to = moment(toStr, formats, true);
 
@@ -126,6 +159,7 @@ function parseLine(line: string): ParsedLine {
     from,
     to,
     duration: moment.duration(to.diff(from)),
+    scope,
   };
 }
 

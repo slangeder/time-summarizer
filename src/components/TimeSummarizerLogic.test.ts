@@ -109,6 +109,59 @@ asdf
   });
 });
 
+describe("scope parsing", () => {
+  it("should capture scope as trailing token", () => {
+    const day = firstDay("08:15-10:05 ORTHO");
+    assertValid(day.parsed[0]);
+    expect(day.parsed[0].scope).toBe("ORTHO");
+  });
+
+  it("should leave scope undefined when no trailing token", () => {
+    const day = firstDay("08:15-10:05");
+    assertValid(day.parsed[0]);
+    expect(day.parsed[0].scope).toBeUndefined();
+  });
+
+  it("should treat multi-word trailing text as scope", () => {
+    const day = firstDay("08:00-09:00 Project A");
+    assertValid(day.parsed[0]);
+    expect(day.parsed[0].scope).toBe("Project A");
+  });
+
+  it("should sum durations per scope in scopeTotals", () => {
+    const input = `0745-0815
+0815-1005 ORTHO
+1050-1225 ORTHO
+1300-1555 ORTHO
+1710-1735 ORTHO
+1845-1915 ORTHO
+2005-2205 ORTHO`;
+    const day = firstDay(input);
+    expect(day.scopeTotals).toBeDefined();
+    expect(day.scopeTotals!.get("ORTHO")).toEqual(
+      moment.duration(1, "hour").add(50, "minutes")
+        .add(1, "hour").add(35, "minutes")
+        .add(2, "hours").add(55, "minutes")
+        .add(25, "minutes")
+        .add(30, "minutes")
+        .add(2, "hours")
+    );
+    expect(day.scopeTotals!.has("")).toBe(false);
+  });
+
+  it("should not include unscoped entries in scopeTotals", () => {
+    const day = firstDay(`08:00-09:00
+10:00-11:00 ORTHO`);
+    expect(day.scopeTotals!.size).toBe(1);
+    expect(day.scopeTotals!.get("ORTHO")).toEqual(moment.duration(1, "hour"));
+  });
+
+  it("should leave scopeTotals undefined when no scoped entries", () => {
+    const day = firstDay("08:00-09:00");
+    expect(day.scopeTotals).toBeUndefined();
+  });
+});
+
 describe("multi-day parsing", () => {
   const today = moment({ year: 2026, month: 4, day: 23 }); // 2026-05-23
 
@@ -280,6 +333,16 @@ describe("multi-day parsing", () => {
     expect(result.days[0].date).toBeUndefined();
     expect(result.days[0].parsed.length).toBe(2);
     expect(result.days[0].parsed[0].valid).toBe(false);
+  });
+
+  it("should aggregate grand scope totals across days", () => {
+    const input = `08:00-09:00 ORTHO
+
+10:00-12:00 ORTHO
+12:00-13:00 ADMIN`;
+    const result = TimeSummarizerLogic.calculate(input, today);
+    expect(result.grandScopeTotals!.get("ORTHO")).toEqual(moment.duration(3, "hours"));
+    expect(result.grandScopeTotals!.get("ADMIN")).toEqual(moment.duration(1, "hour"));
   });
 
   it("should return empty days array for empty input", () => {
