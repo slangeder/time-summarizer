@@ -28,6 +28,24 @@
         </div>
       </div>
 
+      <!-- Grand scope totals -->
+      <div v-if="result.days.length > 1 && result.grandScopeTotals && result.grandScopeTotals.size > 0" class="bg-slate-50 rounded-xl border border-slate-200 overflow-hidden">
+        <table class="w-full text-sm">
+          <thead class="bg-slate-100 text-slate-600 uppercase text-xs tracking-wider">
+            <tr>
+              <th class="text-left px-4 py-2 font-medium">Scope (all days)</th>
+              <th class="text-right px-4 py-2 font-medium">Total</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-200">
+            <tr v-for="[scope, dur] of sortedScopes(result.grandScopeTotals)" :key="scope">
+              <td class="px-4 py-2 font-mono text-slate-700">{{ scope }}</td>
+              <td class="px-4 py-2 font-mono font-semibold text-brand-accent text-right">{{ durationToString(dur) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
       <!-- Per-day breakdown -->
       <div v-for="(day, dayIndex) of result.days" :key="dayIndex" class="space-y-4">
         <div class="flex items-baseline justify-between gap-4 border-b border-slate-200 pb-2">
@@ -47,9 +65,12 @@
               class="p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 transition-colors"
               :class="line.valid ? 'hover:bg-slate-100' : 'bg-red-50 hover:bg-red-100'"
             >
-              <span class="font-mono text-sm break-all" :class="line.valid ? 'text-slate-600' : 'text-red-700'">{{ line.input }}</span>
-              <span v-if="line.valid" class="font-mono font-semibold text-brand-accent shrink-0">
-                {{ durationToString(line.duration) }}
+              <span class="font-mono text-sm break-all" :class="line.valid ? 'text-slate-600' : 'text-red-700'">
+                {{ line.valid ? formatRange(line) : line.input }}
+              </span>
+              <span v-if="line.valid" class="flex items-center gap-2 shrink-0">
+                <span v-if="line.scope" class="font-mono text-xs tracking-wider text-slate-600 bg-slate-200 px-2 py-1 rounded">{{ line.scope }}</span>
+                <span class="font-mono font-semibold text-brand-accent">{{ durationToString(line.duration) }}</span>
               </span>
               <span v-else class="font-mono text-xs font-semibold uppercase tracking-wider text-red-600 bg-red-100 px-2 py-1 rounded shrink-0">
                 Invalid
@@ -58,6 +79,23 @@
           </ul>
         </div>
         <p v-else class="text-sm text-slate-500 italic">No entries</p>
+
+        <div v-if="day.scopeTotals && day.scopeTotals.size > 0" class="bg-slate-50 rounded-xl border border-slate-200 overflow-hidden">
+          <table class="w-full text-sm">
+            <thead class="bg-slate-100 text-slate-600 uppercase text-xs tracking-wider">
+              <tr>
+                <th class="text-left px-4 py-2 font-medium">Scope</th>
+                <th class="text-right px-4 py-2 font-medium">Total</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200">
+              <tr v-for="[scope, dur] of sortedScopes(day.scopeTotals)" :key="scope">
+                <td class="px-4 py-2 font-mono text-slate-700">{{ scope }}</td>
+                <td class="px-4 py-2 font-mono font-semibold text-brand-accent text-right">{{ durationToString(dur) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
         <div v-if="day.total" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl">
@@ -104,5 +142,13 @@ function durationToString(duration: Duration): string {
 
 function momentToString(m: Moment): string {
   return m.format("HH:mm");
+}
+
+function formatRange(line: { from: Moment; to: Moment }): string {
+  return `${line.from.format("HH:mm")} - ${line.to.format("HH:mm")}`;
+}
+
+function sortedScopes(totals: Map<string, Duration>): [string, Duration][] {
+  return [...totals.entries()].sort((a, b) => b[1].asMilliseconds() - a[1].asMilliseconds());
 }
 </script>
