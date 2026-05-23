@@ -65,12 +65,12 @@
               class="p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 transition-colors"
               :class="line.valid ? 'hover:bg-slate-100' : 'bg-red-50 hover:bg-red-100'"
             >
-              <span class="font-mono text-sm break-all" :class="line.valid ? 'text-slate-600' : 'text-red-700'">
-                {{ line.valid ? formatRange(line) : line.input }}
+              <span class="font-mono text-sm break-all" :class="!line.valid ? 'text-red-700' : isNegative(line) ? 'text-red-600' : 'text-slate-600'">
+                {{ line.valid ? formatLine(line) : line.input }}
               </span>
               <span v-if="line.valid" class="flex items-center gap-2 shrink-0">
                 <span v-if="line.scope" class="font-mono text-xs tracking-wider text-slate-600 bg-slate-200 px-2 py-1 rounded">{{ line.scope }}</span>
-                <span class="font-mono font-semibold text-brand-accent">{{ durationToString(line.duration) }}</span>
+                <span class="font-mono font-semibold" :class="isNegative(line) ? 'text-red-600' : 'text-brand-accent'">{{ durationToString(line.duration) }}</span>
               </span>
               <span v-else class="font-mono text-xs font-semibold uppercase tracking-wider text-red-600 bg-red-100 px-2 py-1 rounded shrink-0">
                 Invalid
@@ -134,18 +134,27 @@ function pad(num: number | string, size: number): string {
 }
 
 function durationToString(duration: Duration): string {
-  const totalMinutes = Math.floor(duration.asMinutes());
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  return "+" + pad(hours, 2) + ":" + pad(minutes, 2);
+  const totalMinutes = Math.round(duration.asMinutes());
+  const sign = totalMinutes < 0 ? "-" : "+";
+  const abs = Math.abs(totalMinutes);
+  const hours = Math.floor(abs / 60);
+  const minutes = abs % 60;
+  return sign + pad(hours, 2) + ":" + pad(minutes, 2);
 }
 
 function momentToString(m: Moment): string {
   return m.format("HH:mm");
 }
 
-function formatRange(line: { from: Moment; to: Moment }): string {
-  return `${line.from.format("HH:mm")} - ${line.to.format("HH:mm")}`;
+function isNegative(line: { duration: Duration }): boolean {
+  return line.duration.asMilliseconds() < 0;
+}
+
+function formatLine(line: { from?: Moment; to?: Moment; duration: Duration }): string {
+  if (line.from && line.to) {
+    return `${line.from.format("HH:mm")} - ${line.to.format("HH:mm")}`;
+  }
+  return durationToString(line.duration);
 }
 
 function sortedScopes(totals: Map<string, Duration>): [string, Duration][] {
