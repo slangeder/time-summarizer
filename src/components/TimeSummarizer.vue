@@ -19,12 +19,12 @@
     </button>
 
     <div v-if="result" class="space-y-8 pt-8 border-t border-slate-200">
-      
+
       <!-- Total Section -->
       <div class="bg-brand-darkest text-white rounded-xl p-6 text-center shadow-sm">
         <h2 class="text-sm font-medium text-slate-300 uppercase tracking-wider mb-2">Total Time</h2>
         <div class="font-mono text-4xl font-bold text-brand-accent">
-          {{ durationToString(result.total.duration) }}
+          {{ result.total ? durationToString(result.total.duration) : "—" }}
         </div>
       </div>
 
@@ -33,10 +33,18 @@
         <h2 class="text-lg font-semibold text-slate-700 mb-4">Calculation</h2>
         <div class="bg-slate-50 rounded-xl border border-slate-200 overflow-hidden">
           <ul class="divide-y divide-slate-200">
-            <li v-for="(line, index) of result.parsed" :key="index" class="p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 hover:bg-slate-100 transition-colors">
-              <span class="font-mono text-sm text-slate-600 break-all">{{ line.input }}</span>
-              <span class="font-mono font-semibold text-brand-accent shrink-0">
+            <li
+              v-for="(line, index) of result.parsed"
+              :key="index"
+              class="p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 transition-colors"
+              :class="line.valid ? 'hover:bg-slate-100' : 'bg-red-50 hover:bg-red-100'"
+            >
+              <span class="font-mono text-sm break-all" :class="line.valid ? 'text-slate-600' : 'text-red-700'">{{ line.input }}</span>
+              <span v-if="line.valid" class="font-mono font-semibold text-brand-accent shrink-0">
                 {{ durationToString(line.duration) }}
+              </span>
+              <span v-else class="font-mono text-xs font-semibold uppercase tracking-wider text-red-600 bg-red-100 px-2 py-1 rounded shrink-0">
+                Invalid
               </span>
             </li>
           </ul>
@@ -44,7 +52,7 @@
       </div>
 
       <!-- Other Details -->
-      <div>
+      <div v-if="result.total">
         <h2 class="text-lg font-semibold text-slate-700 mb-4">Details</h2>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl">
@@ -57,7 +65,7 @@
           </div>
         </div>
       </div>
-      
+
     </div>
   </div>
 </template>
