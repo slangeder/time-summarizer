@@ -1,7 +1,7 @@
 import moment, { Duration, Moment } from "moment";
 
 export type ParsedLine =
-  | { input: string; valid: true; from: Moment; to: Moment; duration: Duration; scope?: string }
+  | { input: string; valid: true; from?: Moment; to?: Moment; duration: Duration; scope?: string }
   | { input: string; valid: false };
 
 export interface TotalResult {
@@ -135,6 +135,15 @@ function parseDate(line: string, today: Moment): Moment | undefined {
 function parseLine(line: string): ParsedLine {
   const trimmed = line.trim();
 
+  if (trimmed.startsWith("-")) {
+    const rest = trimmed.slice(1).trim();
+    const negDuration = parseNegativeDuration(rest);
+    if (negDuration) {
+      return { input: trimmed, valid: true, duration: negDuration };
+    }
+    return { input: trimmed, valid: false };
+  }
+
   const split = trimmed.split(/[-–—]/);
   const formats = ["HH:mm", "HHmm"];
   const fromStr = (split[0] ?? "").trim();
@@ -163,6 +172,22 @@ function parseLine(line: string): ParsedLine {
   };
 }
 
+function parseNegativeDuration(text: string): Duration | undefined {
+  if (text === "") return undefined;
+  const hhmm = text.match(/^(\d{1,2}):(\d{2})$/);
+  if (hhmm) {
+    const hours = parseInt(hhmm[1], 10);
+    const minutes = parseInt(hhmm[2], 10);
+    if (minutes >= 60) return undefined;
+    return moment.duration(-(hours * 60 + minutes), "minutes");
+  }
+  const minsOnly = text.match(/^\d+$/);
+  if (minsOnly) {
+    return moment.duration(-parseInt(text, 10), "minutes");
+  }
+  return undefined;
+}
+
 function calculateTotal(parsedLines: ParsedLine[], date?: Moment): TotalResult | undefined {
   const validLines = parsedLines.filter((p): p is Extract<ParsedLine, { valid: true }> => p.valid);
   if (validLines.length === 0) {
@@ -174,7 +199,9 @@ function calculateTotal(parsedLines: ParsedLine[], date?: Moment): TotalResult |
     duration.add(parsed.duration);
   }
 
-  const workStart = validLines[0].from.clone();
+  const firstWithFrom = validLines.find((p) => p.from);
+  if (!firstWithFrom || !firstWithFrom.from) return undefined;
+  const workStart = firstWithFrom.from.clone();
   if (date) {
     workStart.year(date.year()).month(date.month()).date(date.date());
   }

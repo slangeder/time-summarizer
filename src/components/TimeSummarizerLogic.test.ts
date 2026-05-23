@@ -109,6 +109,62 @@ asdf
   });
 });
 
+describe("negative entries", () => {
+  it("should parse -60 as negative 60 minutes", () => {
+    const day = firstDay("-60");
+    assertValid(day.parsed[0]);
+    expect(day.parsed[0].duration.asMinutes()).toBe(-60);
+    expect(day.parsed[0].from).toBeUndefined();
+    expect(day.parsed[0].to).toBeUndefined();
+  });
+
+  it("should parse -90 as negative 90 minutes", () => {
+    const day = firstDay("-90");
+    assertValid(day.parsed[0]);
+    expect(day.parsed[0].duration.asMinutes()).toBe(-90);
+  });
+
+  it("should parse -1:00 as negative 1 hour", () => {
+    const day = firstDay("-1:00");
+    assertValid(day.parsed[0]);
+    expect(day.parsed[0].duration.asMinutes()).toBe(-60);
+  });
+
+  it("should parse -01:30 as negative 1h30m", () => {
+    const day = firstDay("-01:30");
+    assertValid(day.parsed[0]);
+    expect(day.parsed[0].duration.asMinutes()).toBe(-90);
+  });
+
+  it("should subtract negative entry from total", () => {
+    const day = firstDay(`0700-1700
+-60`);
+    expect(day.parsed.length).toBe(2);
+    assertValid(day.parsed[0]);
+    assertValid(day.parsed[1]);
+    expect(day.parsed[0].duration).toEqual(moment.duration(10, "hours"));
+    expect(day.parsed[1].duration.asMinutes()).toBe(-60);
+    expect(day.total!.duration.asMinutes()).toBe(9 * 60);
+  });
+
+  it("should mark dangling minus as invalid", () => {
+    const day = firstDay("-");
+    expect(day.parsed[0].valid).toBe(false);
+  });
+
+  it("should mark -abc as invalid", () => {
+    const day = firstDay("-abc");
+    expect(day.parsed[0].valid).toBe(false);
+  });
+
+  it("should anchor normalizedWorkEnd accounting for negative entry", () => {
+    const day = firstDay(`0700-1700
+-60`);
+    expect(day.total!.workStart.format("HH:mm")).toBe("07:00");
+    expect(day.total!.normalizedWorkEnd.format("HH:mm")).toBe("16:00");
+  });
+});
+
 describe("scope parsing", () => {
   it("should capture scope as trailing token", () => {
     const day = firstDay("08:15-10:05 ORTHO");
