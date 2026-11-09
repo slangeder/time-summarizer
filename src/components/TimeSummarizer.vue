@@ -107,24 +107,75 @@
             <div class="font-mono font-semibold text-slate-700">{{ momentToString(day.total.normalizedWorkEnd) }}</div>
           </div>
         </div>
+
+        <div v-if="day.total" class="bg-slate-50 rounded-xl border border-slate-200 overflow-hidden">
+          <table class="w-full text-sm">
+            <thead class="bg-slate-100 text-slate-600 uppercase text-xs tracking-wider">
+              <tr>
+                <th class="text-left px-4 py-2 font-medium">Normalized</th>
+                <th class="text-left px-4 py-2 font-medium">From</th>
+                <th class="text-left px-4 py-2 font-medium">To</th>
+                <th class="text-right px-4 py-2 font-medium">Duration</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200">
+              <tr v-for="(row, idx) of scheduleFor(day)" :key="idx">
+                <td class="px-4 py-2 font-mono">
+                  <span :class="row.kind === 'break' ? 'text-amber-700' : 'text-slate-700'">{{ row.kind }}</span>
+                </td>
+                <td class="px-4 py-2 font-mono text-slate-700">{{ momentToString(row.from) }}</td>
+                <td class="px-4 py-2 font-mono text-slate-700">{{ momentToString(row.to) }}</td>
+                <td class="px-4 py-2 font-mono font-semibold text-brand-accent text-right">{{ durationToString(row.duration) }}</td>
+              </tr>
+            </tbody>
+          </table>
+          <p v-if="scheduleCapViolated(day)" class="px-4 py-2 text-xs text-red-600 bg-red-50 border-t border-red-200">
+            Work exceeds max consecutive hours — break cannot satisfy cap on both segments.
+          </p>
+        </div>
       </div>
 
     </div>
+
+    <NormalizationSettingsPanel v-model="settings" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, computed, watch } from "vue";
 import type { Duration, Moment } from "moment";
-import TimeSummarizerLogic, { type CalculationResult } from "./TimeSummarizerLogic";
+import TimeSummarizerLogic, { type CalculationResult, type Day } from "./TimeSummarizerLogic";
+import {
+  buildSchedule,
+  loadSettings,
+  saveSettings,
+  resolveSettings,
+  type NormalizationSettings,
+  type NormalizedSchedule,
+} from "./NormalizationSettings";
+import NormalizationSettingsPanel from "./NormalizationSettingsPanel.vue";
 
 defineProps<{ msg?: string }>();
 
 const input = ref("");
 const result = ref<CalculationResult | undefined>(undefined);
+const settings = ref<NormalizationSettings>(loadSettings());
+const resolved = computed(() => resolveSettings(settings.value));
+
+watch(settings, (val) => saveSettings(val), { deep: true });
 
 function calculate(): void {
   result.value = TimeSummarizerLogic.calculate(input.value);
+}
+
+function scheduleFor(day: Day): NormalizedSchedule["rows"] {
+  if (!day.total) return [];
+  return buildSchedule(day.total.workStart, day.total.duration, resolved.value).rows;
+}
+
+function scheduleCapViolated(day: Day): boolean {
+  if (!day.total) return false;
+  return buildSchedule(day.total.workStart, day.total.duration, resolved.value).capViolated;
 }
 
 function pad(num: number | string, size: number): string {
